@@ -5,7 +5,9 @@ from tqdm.auto import tqdm
 from util import empty_the_dir
 from video_handler import save_numpy_as_video
 
-def rSVD(X, r, p=0, q=0):
+def rSVD(X, r, p=None, q=0):
+    if p is None:
+        p = max(5, int(r / 50))
     # Step 1: Sample column space of X with P matrix
     ny = X.shape[1]
     P = np.random.randn(ny,r+p)
@@ -39,7 +41,7 @@ def slice_by_slice_RSVD(tensor, ranks, colorful, dim=0, reconstruct=True):
     lefts = [] # U matrices
     sigmas = [] #
     rights = [] # (V.T) matrices
-    reconstructed = np.zeros(shape=tensor.shape, dtype=np.uint8)
+    reconstructed = np.zeros(shape=tensor.shape, dtype=np.float64)
     # ranks are either specified for each slice or given int are comupted equally for all slices
     if type(ranks) == int:
         ranks = [ranks] * tensor.shape[dim]
@@ -120,10 +122,10 @@ def all_dim_RSVD(exp_name, video_tensor, desired_compression_ratio, format_='mp4
     results_dict = dict()
     results_dict["reconstructed_tensors"] = tensors
     results_dict["sigmas"] = sigmas
-    results_dict["relative_errors"] = relative_errors
+    results_dict["relative_error"] = relative_errors
     results_dict["ranks"] = ranks
-    results_dict["exact_comp_ratios"] = exact_comp_ratios
-    results_dict["times"] = times
+    results_dict["exact_compression_ratio"] = exact_comp_ratios
+    results_dict["method_time"] = times
     return results_dict
 
 
