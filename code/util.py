@@ -1,8 +1,10 @@
 import os, shutil
 import pyttb.tensor as ttb
 import json
+import matplotlib.pyplot as plt
+import numpy as np
 
-def empty_the_dir(dir_path):
+def empty_the_dir(dir_path: str) -> None:
     with os.scandir(dir_path) as entries:
             for entry in entries:
                 if entry.is_dir() and not entry.is_symlink():
@@ -10,14 +12,13 @@ def empty_the_dir(dir_path):
                 else:
                     os.remove(entry.path)
 
-
-def load_ttb_from_npy_file(path_to_npy):
+def load_ttb_from_npy_file(path_to_npy: str) -> None:
     with open(path_to_npy, 'rb') as f:
         tensor = np.load(f)
     return ttb.from_data(tensor)
 
 
-def decomposition_results_to_json(exp_name, method, results_dict):
+def decomposition_results_to_json(exp_name: str, method: str, results_dict: dict) -> None:
     # dump only serializable parts (ignore tensors)
     json_res = dict()
     for key in results_dict.keys():

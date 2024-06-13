@@ -25,6 +25,33 @@ def rSVD(X, r, p=None, q=0):
 
     return U, S, VT
 
+def random_svd(X: np.ndarray, rank: int, p: int = 0, q:int = 0) -> dict:
+    output_dict = dict()
+    # Randomized reconstruction
+    start = time.time()
+    rU, rS, rVT = rSVD(X, rank, p, q)
+    XrSVD = rU[:,:(rank+1)] @ np.diag(rS[:(rank+1)]) @ rVT[:(rank+1),:] # RSVD approximation
+    output_dict['method_time'] = time.time() - start
+    output_dict['relative_error'] = np.linalg.norm(X-XrSVD,ord=2) / np.linalg.norm(X,ord=2)
+    output_dict['sigmas'] = rS
+    output_dict['approximation'] = XrSVD
+    
+    return output_dict
+    
+def truncated_svd(X: np.ndarray, rank: int) -> dict:
+    output_dict = dict()
+    # Deterministic truncated SVD reconstruction
+    start = time.time()
+    U, S, VT = np.linalg.svd(X,full_matrices=False) 
+    XSVD = U[:,:(rank+1)] @ np.diag(S[:(rank+1)]) @ VT[:(rank+1),:]
+    output_dict['method_time'] = time.time() - start
+
+    output_dict['sigmas'] = S
+    output_dict['relative_error'] = np.linalg.norm(X-XSVD,ord=2) / np.linalg.norm(X,ord=2)
+    output_dict['approximation'] = XSVD
+
+    return output_dict
+    
 
 def t_slice(tensor, counter, dim):
     if dim > 2:
@@ -133,10 +160,7 @@ def calculate_RSVD_ranks(desired_comp_ratio, shape):
     ranks = [0, 0, 0]
     shape = shape[:3]
     shape_sum = sum(shape)
-    desired_total_size = 1
-    for s in shape:
-        desired_total_size *= s
-    desired_total_size /= desired_comp_ratio
+    desired_total_size = np.prod(s) / desired_comp_ratio
     for i in range(3):
         ranks[i]  = int((desired_total_size / (shape[i] * (shape_sum - shape[i]))).__floor__())
     return ranks
@@ -144,9 +168,13 @@ def calculate_RSVD_ranks(desired_comp_ratio, shape):
 def calculate_RSVD_compression_ratios(ranks, shape):
     comp_ratios = [0, 0, 0]
     shape = shape[:3]
-    total_size = 1
-    for s in shape:
-        total_size *= s
     for i in range(3):
-        comp_ratios[i] = total_size / (ranks[i] * shape[i] * (sum(shape) - shape[i]))
+        comp_ratios[i] = np.prod(s) / (ranks[i] * shape[i] * (sum(shape) - shape[i]))
     return comp_ratios
+
+def calculate_2d_RSVD_compression_ratio(rank, shape):
+    if len(shape) != 2:
+        raise ValueError(f"Shape must be of length 2, but received shape={shape}")
+    return np.prod(shape) / (rank**2 + rank*sum(shape))
+    
+    
