@@ -3,7 +3,7 @@ import numpy as np
 
 from rsvd import calculate_2d_RSVD_compression_ratio
     
-def error_time_analysis(exp_name: str, all_results: dict) -> None:
+def error_time_analysis(exp_name: str, original_np_tensor:np.ndarray, all_results: dict) -> None:
     fig, axs = plt.subplots(3, 1, sharex=True, figsize=(16, 18))
     num_labels = 0
     for method in all_results:
@@ -27,7 +27,7 @@ def error_time_analysis(exp_name: str, all_results: dict) -> None:
             relative_errors = np.array(relative_errors)
             exact_comp_ratios = np.array(exact_comp_ratios)
             times = np.array(times)
-            efficiency = np.array(1 / (relative_errors * times))
+            efficiency = -np.log(relative_errors) /  np.log(times)
             
             axs[0].plot(exact_comp_ratios, relative_errors, marker='o', label=method, color=color)
             axs[1].plot(exact_comp_ratios, times, marker='o', label=method, color=color)
@@ -38,7 +38,7 @@ def error_time_analysis(exp_name: str, all_results: dict) -> None:
             results_rsvd = all_results[method]
             relative_errors = np.array([results_rsvd[compress_ratio]["relative_error"] for compress_ratio in results_rsvd.keys()])
             times = np.array([results_rsvd[key]["method_time"] for key in results_rsvd.keys()])
-            efficiency = np.array([1 / (relative_errors[:, i] * times[:, i]) for i in range(3)])
+            efficiency = np.array([ -np.log(relative_errors[:, i]) /  np.log(times[:, i]) for i in range(3)])
             
             exact_comp_ratios = np.array([results_rsvd[compress_ratio]["exact_compression_ratio"] for compress_ratio in results_rsvd.keys()])
             colors = ["black", "yellow", "green"]
@@ -50,19 +50,22 @@ def error_time_analysis(exp_name: str, all_results: dict) -> None:
     axs[-1].set_xlabel("Compression Ratio")
     axs[0].set_title("Relative error of the reconstruction")
     axs[0].set_xscale("log") # for better visual interpretability: log scale?
-    axs[0].set_ylim(0, 1.05 * max(1, np.max(axs[0].get_ylim())))
+
+    relative_error_mean_substraction = np.linalg.norm(original_np_tensor - np.full_like(original_np_tensor, np.mean(original_np_tensor))) / np.linalg.norm(original_np_tensor)
     
-    axs[0].axhline(y=1, color='red', linestyle='-')
+    axs[0].set_ylim(-0.05 * relative_error_mean_substraction, 1.05 * relative_error_mean_substraction)
+    axs[0].axhline(y=relative_error_mean_substraction, color='red', linestyle='-', label="Simple mean approximation")
+    num_labels += 1
     axs[0].set_ylabel("||X - X_approx||_F / ||X||_F")
     
     axs[1].set_title("Time of reconstruction")
     axs[1].set_ylabel("seconds")
     
     axs[2].set_title("Efficiency")
-    axs[2].set_ylabel("1 / (time * relative_error)")
+    axs[2].set_ylabel("alpha = log(1/error) / log(time)")
     # axs[2].set_yscale("log")
     
-    axs[0].legend(loc='upper center', ncols=num_labels, bbox_to_anchor=(0.5, 1.25))
+    axs[0].legend(loc='upper center', ncols=4, bbox_to_anchor=(0.5, 1.25))
     plt.tight_layout()
     plt.show()
     
@@ -88,7 +91,7 @@ def plot_image_svd_reconstructions(U: np.ndarray,S: np.ndarray,Vt: np.ndarray, r
     plt.show()
 
 
-def svd_rsvd_error_time_analysis(exp_name: str, all_rsvd_dict: dict, truncated_svd_dict: dict = None) -> None:
+def svd_rsvd_error_time_analysis(exp_name: str, X: np.ndarray, all_rsvd_dict: dict, truncated_svd_dict: dict = None) -> None:
     fig, axs = plt.subplots(3, 1, sharex=True, figsize=(16, 18))
     qs = list(all_rsvd_dict.keys())
     ps = list(all_rsvd_dict[qs[0]].keys())
@@ -109,7 +112,7 @@ def svd_rsvd_error_time_analysis(exp_name: str, all_rsvd_dict: dict, truncated_s
                 
             relative_errors = np.array(relative_errors)
             times = np.array(times)
-            efficiency = np.array(1 / (relative_errors * times))
+            efficiency = -np.log(relative_errors) /  np.log(times)
             
             axs[0].plot(exact_comp_ratios, relative_errors, marker=marker, linestyle=linestyle, label=f"RSVD: q={q}, p={p}")
             axs[1].plot(exact_comp_ratios, times, marker=marker, linestyle=linestyle, label=f"RSVD: q={q}, p={p}")
@@ -124,7 +127,7 @@ def svd_rsvd_error_time_analysis(exp_name: str, all_rsvd_dict: dict, truncated_s
         
         relative_errors = np.array(relative_errors)
         times = np.array(times)
-        efficiency = np.array(1 / (relative_errors * times))
+        efficiency = -np.log(relative_errors) /  np.log(times)
         
         axs[0].plot(exact_comp_ratios, relative_errors, marker='o', label=f"Truncated SVD", color="black")
         axs[1].plot(exact_comp_ratios, times, marker='o', label=f"Truncated SVD", color="black")
@@ -133,19 +136,20 @@ def svd_rsvd_error_time_analysis(exp_name: str, all_rsvd_dict: dict, truncated_s
     axs[-1].set_xlabel("Compression Ratio")
     axs[0].set_title("Relative error of the reconstruction")
     axs[0].set_xscale("log") # for better visual interpretability: log scale?
-    axs[0].set_ylim(0, 1.05 * max(1, np.max(axs[0].get_ylim())))
+    relative_error_mean_substraction = np.linalg.norm(X - np.full_like(X, np.mean(X))) / np.linalg.norm(X)
     
-    axs[0].axhline(y=1, color='red', linestyle='-')
+    axs[0].set_ylim(-0.05 * relative_error_mean_substraction, 1.05 * relative_error_mean_substraction)
+    axs[0].axhline(y=relative_error_mean_substraction, color='red', linestyle='-', label="Simple mean approximation")
     axs[0].set_ylabel("||X - X_approx||_F / ||X||_F")
     
     axs[1].set_title("Time of reconstruction")
     axs[1].set_ylabel("seconds")
     
     axs[2].set_title("Efficiency")
-    axs[2].set_ylabel("1 / (time * relative_error)")
+    axs[2].set_ylabel("alpha = log(1/error) / log(time)")
     # axs[2].set_yscale("log")
     
-    axs[0].legend(loc='upper center', ncols=5, bbox_to_anchor=(0.5, 1.2))
+    axs[0].legend(loc='upper center', ncols=4, bbox_to_anchor=(0.5, 1.2))
     plt.tight_layout()
     plt.show()
     

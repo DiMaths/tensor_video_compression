@@ -32,7 +32,7 @@ def random_svd(X: np.ndarray, rank: int, p: int = 0, q:int = 0) -> dict:
     rU, rS, rVT = rSVD(X, rank, p, q)
     XrSVD = rU[:,:(rank+1)] @ np.diag(rS[:(rank+1)]) @ rVT[:(rank+1),:] # RSVD approximation
     output_dict['method_time'] = time.time() - start
-    output_dict['relative_error'] = np.linalg.norm(X-XrSVD,ord=2) / np.linalg.norm(X,ord=2)
+    output_dict['relative_error'] = np.linalg.norm(X-XrSVD) / np.linalg.norm(X)
     output_dict['sigmas'] = rS
     output_dict['approximation'] = XrSVD
     
@@ -47,7 +47,7 @@ def truncated_svd(X: np.ndarray, rank: int) -> dict:
     output_dict['method_time'] = time.time() - start
 
     output_dict['sigmas'] = S
-    output_dict['relative_error'] = np.linalg.norm(X-XSVD,ord=2) / np.linalg.norm(X,ord=2)
+    output_dict['relative_error'] = np.linalg.norm(X-XSVD) / np.linalg.norm(X)
     output_dict['approximation'] = XSVD
 
     return output_dict
@@ -160,7 +160,7 @@ def calculate_RSVD_ranks(desired_comp_ratio, shape):
     ranks = [0, 0, 0]
     shape = shape[:3]
     shape_sum = sum(shape)
-    desired_total_size = np.prod(s) / desired_comp_ratio
+    desired_total_size = np.prod(shape) / desired_comp_ratio
     for i in range(3):
         ranks[i]  = int((desired_total_size / (shape[i] * (shape_sum - shape[i]))).__floor__())
     return ranks
@@ -169,7 +169,7 @@ def calculate_RSVD_compression_ratios(ranks, shape):
     comp_ratios = [0, 0, 0]
     shape = shape[:3]
     for i in range(3):
-        comp_ratios[i] = np.prod(s) / (ranks[i] * shape[i] * (sum(shape) - shape[i]))
+        comp_ratios[i] = np.prod(shape) / (ranks[i] * shape[i] * (sum(shape) - shape[i]))
     return comp_ratios
 
 def calculate_2d_RSVD_compression_ratio(rank, shape):
