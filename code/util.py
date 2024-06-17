@@ -23,7 +23,7 @@ def decomposition_results_to_json(exp_name: str, method: str, results_dict: dict
     json_res = dict()
     for key in results_dict.keys():
         json_res[key] = dict()
-        for non_series_key in ['relative_error', 'method_time', 'exact_compression_ratio']:
+        for non_series_key in ['relative_error', 'method_time', 'exact_compress_ratio']:
             json_res[key][non_series_key] = results_dict[key][non_series_key]
     json_object = json.dumps(json_res, indent=4) 
     

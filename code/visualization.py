@@ -1,9 +1,9 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-from rsvd import calculate_2d_RSVD_compression_ratio
+from rsvd import calculate_2d_RSVD_compress_ratio
     
-def error_time_analysis(exp_name: str, original_np_tensor:np.ndarray, all_results: dict) -> None:
+def error_time_analysis(exp_name: str, original_np_tensor:np.ndarray, all_results: dict, title:str = None) -> None:
     fig, axs = plt.subplots(3, 1, sharex=True, figsize=(16, 18))
     num_labels = 0
     for method in all_results:
@@ -17,35 +17,35 @@ def error_time_analysis(exp_name: str, original_np_tensor:np.ndarray, all_result
                 color = "magenta"
             relative_errors = []
             times = []
-            exact_comp_ratios = []
+            exact_compress_ratios = []
             for j, compress_ratio in enumerate(all_results[method].keys()):
                 relative_errors.append(all_results[method][compress_ratio]["relative_error"])
-                exact_comp_ratios.append(all_results[method][compress_ratio]["exact_compression_ratio"])
+                exact_compress_ratios.append(all_results[method][compress_ratio]["exact_compress_ratio"])
                 times.append(all_results[method][compress_ratio]["method_time"])
                 
         
             relative_errors = np.array(relative_errors)
-            exact_comp_ratios = np.array(exact_comp_ratios)
+            exact_compress_ratios = np.array(exact_compress_ratios)
             times = np.array(times)
-            efficiency = -np.log(relative_errors) /  np.log(times)
+            efficiency = -np.log(relative_errors) /  np.log(np.exp(1) + times)
             
-            axs[0].plot(exact_comp_ratios, relative_errors, marker='o', label=method, color=color)
-            axs[1].plot(exact_comp_ratios, times, marker='o', label=method, color=color)
-            axs[2].plot(exact_comp_ratios, efficiency, marker='o', label=method, color=color)
+            axs[0].plot(exact_compress_ratios, relative_errors, marker='o', label=method, color=color)
+            axs[1].plot(exact_compress_ratios, times, marker='o', label=method, color=color)
+            axs[2].plot(exact_compress_ratios, efficiency, marker='o', label=method, color=color)
             
         else:
             num_labels += 3
             results_rsvd = all_results[method]
             relative_errors = np.array([results_rsvd[compress_ratio]["relative_error"] for compress_ratio in results_rsvd.keys()])
             times = np.array([results_rsvd[key]["method_time"] for key in results_rsvd.keys()])
-            efficiency = np.array([ -np.log(relative_errors[:, i]) /  np.log(times[:, i]) for i in range(3)])
+            efficiency = np.array([ -np.log(relative_errors[:, i]) /  np.log(np.exp(1) + np.array(times[:, i])) for i in range(3)])
             
-            exact_comp_ratios = np.array([results_rsvd[compress_ratio]["exact_compression_ratio"] for compress_ratio in results_rsvd.keys()])
+            exact_compress_ratios = np.array([results_rsvd[compress_ratio]["exact_compress_ratio"] for compress_ratio in results_rsvd.keys()])
             colors = ["black", "yellow", "green"]
             for i in range(3):
-                axs[0].plot(exact_comp_ratios[:, i], relative_errors[:, i], marker='o', label=f"RSVD {i}-th dim", color=colors[i])
-                axs[1].plot(exact_comp_ratios[:, i], times[:, i], marker='o', label=f"RSVD {i}-th dim", color=colors[i])
-                axs[2].plot(exact_comp_ratios[:, i], efficiency[i], marker='o', label=f"RSVD {i}-th dim", color=colors[i])
+                axs[0].plot(exact_compress_ratios[:, i], relative_errors[:, i], marker='o', label=f"RSVD {i}-th dim", color=colors[i])
+                axs[1].plot(exact_compress_ratios[:, i], times[:, i], marker='o', label=f"RSVD {i}-th dim", color=colors[i])
+                axs[2].plot(exact_compress_ratios[:, i], efficiency[i], marker='o', label=f"RSVD {i}-th dim", color=colors[i])
                 
     axs[-1].set_xlabel("Compression Ratio")
     axs[0].set_title("Relative error of the reconstruction")
@@ -62,10 +62,11 @@ def error_time_analysis(exp_name: str, original_np_tensor:np.ndarray, all_result
     axs[1].set_ylabel("seconds")
     
     axs[2].set_title("Efficiency")
-    axs[2].set_ylabel("alpha = log(1/error) / log(time)")
+    axs[2].set_ylabel("alpha = ln(1/error) / ln(e+time)")
     # axs[2].set_yscale("log")
     
-    axs[0].legend(loc='upper center', ncols=4, bbox_to_anchor=(0.5, 1.25))
+    axs[0].legend(loc='upper center', ncols=4, bbox_to_anchor=(0.5, 1.3))
+    plt.suptitle(title if title else exp_name, y=1.01)
     plt.tight_layout()
     plt.show()
     
@@ -76,6 +77,7 @@ def error_time_analysis(exp_name: str, original_np_tensor:np.ndarray, all_result
 def plot_image_svd_reconstructions(U: np.ndarray,S: np.ndarray,Vt: np.ndarray, ranks: list, labels=None) -> None:
     fig, ax = plt.subplots(1,len(ranks),figsize=(16,(16 / Vt.shape[1] * U.shape[0] / len(ranks)).__ceil__()))
     
+    compress_ratios = [calculate_2d_RSVD_compress_ratio(r, (U.shape[0], Vt.shape[1])) for r in ranks]
     for j, r in enumerate(ranks):
         # Construct approximate image
         Xapprox = U[:,:r+1] @ S[0:r+1,:r+1] @ Vt[:r+1,:]
@@ -84,21 +86,21 @@ def plot_image_svd_reconstructions(U: np.ndarray,S: np.ndarray,Vt: np.ndarray, r
         img.set_cmap('gray')
         ax[j].axis('off')
         if labels is None:
-            ax[j].set_title('r = ' + str(r))
+            ax[j].set_title(f"r = {r}, c_r = {compress_ratios[j]:.3f}")
         else:
-            ax[j].set_title(labels[j] + ' (r = ' + str(r) + ')')
-            
+            ax[j].set_title(f"{labels[j]}, r = {r}, c_r = {compress_ratios[j]:.3f}")
+        ax[j].title.set_fontsize(36 / len(ranks))
     plt.show()
 
 
-def svd_rsvd_error_time_analysis(exp_name: str, X: np.ndarray, all_rsvd_dict: dict, truncated_svd_dict: dict = None) -> None:
+def svd_rsvd_error_time_analysis(exp_name: str, X: np.ndarray, all_rsvd_dict: dict, truncated_svd_dict: dict = None, title: str = None) -> None:
     fig, axs = plt.subplots(3, 1, sharex=True, figsize=(16, 18))
     qs = list(all_rsvd_dict.keys())
     ps = list(all_rsvd_dict[qs[0]].keys())
-    ranks = list(all_rsvd_dict[qs[0]][ps[0]].keys())
+    
     linestyles = ["-", "--", "-."]
     markers = ["X", "s", "p", "*", "^", "P", "H", "D"]
-    exact_comp_ratios = [calculate_2d_RSVD_compression_ratio(r, all_rsvd_dict[qs[0]][ps[0]][ranks[0]]['approximation'].shape) for r in ranks]
+    
     
     for i, q in enumerate(qs):
         linestyle = linestyles[i % 3]
@@ -106,32 +108,39 @@ def svd_rsvd_error_time_analysis(exp_name: str, X: np.ndarray, all_rsvd_dict: di
             marker = markers[j % 8]
             relative_errors = []
             times = []
-            for r in ranks:
-                relative_errors.append(all_rsvd_dict[q][p][r]["relative_error"])
-                times.append(all_rsvd_dict[q][p][r]["method_time"])
+            exact_compress_ratios = []
+            compress_ratios = list(all_rsvd_dict[q][p].keys())
+            
+            for c_r in compress_ratios:
+                relative_errors.append(all_rsvd_dict[q][p][c_r]["relative_error"])
+                times.append(all_rsvd_dict[q][p][c_r]["method_time"])
+                exact_compress_ratios.append(all_rsvd_dict[q][p][c_r]["exact_compress_ratio"])
                 
             relative_errors = np.array(relative_errors)
             times = np.array(times)
-            efficiency = -np.log(relative_errors) /  np.log(times)
+            efficiency = -np.log(relative_errors) /  np.log(np.exp(1) + times)
             
-            axs[0].plot(exact_comp_ratios, relative_errors, marker=marker, linestyle=linestyle, label=f"RSVD: q={q}, p={p}")
-            axs[1].plot(exact_comp_ratios, times, marker=marker, linestyle=linestyle, label=f"RSVD: q={q}, p={p}")
-            axs[2].plot(exact_comp_ratios, efficiency, marker=marker, linestyle=linestyle, label=f"RSVD: q={q}, p={p}")
+            axs[0].plot(exact_compress_ratios, relative_errors, marker=marker, linestyle=linestyle, label=f"RSVD:{' q = ' + str(q)+',' if qs != [0] else ''} p={p}")
+            axs[1].plot(exact_compress_ratios, times, marker=marker, linestyle=linestyle, label=f"RSVD:{' q = ' + str(q)+',' if qs != [0] else ''} p={p}")
+            axs[2].plot(exact_compress_ratios, efficiency, marker=marker, linestyle=linestyle, label=f"RSVD:{' q = ' + str(q)+',' if qs != [0] else ''} p={p}")
     if truncated_svd_dict:
         relative_errors = []
         times = []
-        for r in ranks:
-            relative_errors.append(truncated_svd_dict[r]["relative_error"])
-            times.append(truncated_svd_dict[r]["method_time"])
-                
+        exact_compress_ratios = []
+        compress_ratios = list(truncated_svd_dict.keys())
+        
+        for c_r in compress_ratios:
+            relative_errors.append(truncated_svd_dict[c_r]["relative_error"])
+            times.append(truncated_svd_dict[c_r]["method_time"])
+            exact_compress_ratios.append(truncated_svd_dict[c_r]["exact_compress_ratio"])
         
         relative_errors = np.array(relative_errors)
         times = np.array(times)
-        efficiency = -np.log(relative_errors) /  np.log(times)
+        efficiency = -np.log(relative_errors) /  np.log(np.exp(1) + times)
         
-        axs[0].plot(exact_comp_ratios, relative_errors, marker='o', label=f"Truncated SVD", color="black")
-        axs[1].plot(exact_comp_ratios, times, marker='o', label=f"Truncated SVD", color="black")
-        axs[2].plot(exact_comp_ratios, efficiency, marker='o', label=f"Truncated SVD", color="black")
+        axs[0].plot(exact_compress_ratios, relative_errors, marker='o', label=f"Truncated SVD", color="black")
+        axs[1].plot(exact_compress_ratios, times, marker='o', label=f"Truncated SVD", color="black")
+        axs[2].plot(exact_compress_ratios, efficiency, marker='o', label=f"Truncated SVD", color="black")
                 
     axs[-1].set_xlabel("Compression Ratio")
     axs[0].set_title("Relative error of the reconstruction")
@@ -146,10 +155,11 @@ def svd_rsvd_error_time_analysis(exp_name: str, X: np.ndarray, all_rsvd_dict: di
     axs[1].set_ylabel("seconds")
     
     axs[2].set_title("Efficiency")
-    axs[2].set_ylabel("alpha = log(1/error) / log(time)")
+    axs[2].set_ylabel("alpha = ln(1/error) / ln(e+time)")
     # axs[2].set_yscale("log")
     
-    axs[0].legend(loc='upper center', ncols=4, bbox_to_anchor=(0.5, 1.2))
+    axs[0].legend(loc='upper center', ncols=4, bbox_to_anchor=(0.5, 1.3))
+    plt.suptitle(title if title else exp_name, y=1)
     plt.tight_layout()
     plt.show()
     

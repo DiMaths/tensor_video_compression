@@ -5,12 +5,13 @@ from tqdm.auto import tqdm
 from util import empty_the_dir
 from video_handler import save_numpy_as_video
 
-def rSVD(X, r, p=None, q=0):
+def rSVD(X, r, p=None, q=0, seed=42):
     if p is None:
         p = max(5, int(r / 50))
     # Step 1: Sample column space of X with P matrix
     ny = X.shape[1]
-    P = np.random.randn(ny,r+p)
+    rng = np.random.default_rng(seed)
+    P = rng.normal(loc=0.0, scale=1.0, size=(ny,r+p))
     Z = X @ P
     # only when q is not 0
     for k in range(q):
@@ -25,31 +26,31 @@ def rSVD(X, r, p=None, q=0):
 
     return U, S, VT
 
-def random_svd(X: np.ndarray, rank: int, p: int = 0, q:int = 0) -> dict:
-    output_dict = dict()
-    # Randomized reconstruction
-    start = time.time()
-    rU, rS, rVT = rSVD(X, rank, p, q)
-    XrSVD = rU[:,:(rank+1)] @ np.diag(rS[:(rank+1)]) @ rVT[:(rank+1),:] # RSVD approximation
-    output_dict['method_time'] = time.time() - start
-    output_dict['relative_error'] = np.linalg.norm(X-XrSVD) / np.linalg.norm(X)
-    output_dict['sigmas'] = rS
-    output_dict['approximation'] = XrSVD
-    
-    return output_dict
-    
-def truncated_svd(X: np.ndarray, rank: int) -> dict:
-    output_dict = dict()
-    # Deterministic truncated SVD reconstruction
-    start = time.time()
-    U, S, VT = np.linalg.svd(X,full_matrices=False) 
-    XSVD = U[:,:(rank+1)] @ np.diag(S[:(rank+1)]) @ VT[:(rank+1),:]
-    output_dict['method_time'] = time.time() - start
+def general_svd(X: np.ndarray, randomized: bool, rank: int = None, desired_compress_ratio:float = None, p: int = 0, q:int = 0, seed=42) -> dict:
+    if desired_compress_ratio and rank:
+        raise ValueError("Too many param values are specified, either 'desired_compress_ratio' or 'rank' must be not None")
+    elif not (desired_compress_ratio or rank):
+        raise ValueError("Too few param values are specified, either 'desired_compress_ratio' or 'rank' must be not None")
 
+    if desired_compress_ratio:
+        rank, exact_compress_ratio = calculate_2d_RSVD_rank(desired_compress_ratio, X.shape)
+    else:
+        exact_compress_ratio = calculate_2d_RSVD_compress_ratio(rank, X.shape)
+    
+    output_dict = dict()
+    start = time.time()
+    if randomized:
+        U, S, VT = rSVD(X, rank, p, q, seed)
+    else:
+        U, S, VT = np.linalg.svd(X,full_matrices=False)
+        
+    X_SVD = U[:,:(rank+1)] @ np.diag(S[:(rank+1)]) @ VT[:(rank+1),:] # RSVD approximation
+    
+    output_dict['method_time'] = time.time() - start
+    output_dict['relative_error'] = np.linalg.norm(X-X_SVD) / np.linalg.norm(X)
     output_dict['sigmas'] = S
-    output_dict['relative_error'] = np.linalg.norm(X-XSVD) / np.linalg.norm(X)
-    output_dict['approximation'] = XSVD
-
+    output_dict['approximation'] = X_SVD
+    output_dict["exact_compress_ratio"] = exact_compress_ratio
     return output_dict
     
 
@@ -63,7 +64,7 @@ def t_slice(tensor, counter, dim):
     else:
         return tensor[:, :, counter, ...]
         
-def slice_by_slice_RSVD(tensor, ranks, colorful, dim=0, reconstruct=True):
+def slice_by_slice_RSVD(tensor, ranks, colorful, dim=0, reconstruct=True, seed=42):
     # dim = 0 <-> frame by frame, other values -> other slices
     lefts = [] # U matrices
     sigmas = [] #
@@ -77,7 +78,7 @@ def slice_by_slice_RSVD(tensor, ranks, colorful, dim=0, reconstruct=True):
     if not colorful:
         for frame_counter in tqdm(range(tensor.shape[dim]), desc=f"RSVD of each slice"):
             r = ranks[frame_counter]
-            rU, rS, rVT = rSVD(t_slice(tensor, frame_counter, dim),r)
+            rU, rS, rVT = rSVD(t_slice(tensor, frame_counter, dim), r, seed=seed)
             lefts.append(rU)
             sigmas.append(rS)
             rights.append(rVT)
@@ -94,7 +95,7 @@ def slice_by_slice_RSVD(tensor, ranks, colorful, dim=0, reconstruct=True):
             frame_sigmas = []
             channels_reconstructed = []
             for color_channel in range(tensor.shape[-1]):
-                rU, rS, rVT = rSVD(t_slice(tensor, frame_counter, dim)[..., color_channel],r)
+                rU, rS, rVT = rSVD(t_slice(tensor, frame_counter, dim)[..., color_channel], r, seed=seed)
 
                 if dim == 0:
                     reconstructed[frame_counter,..., color_channel] = np.array(rU[:,:(r+1)] @ np.diag(rS[:(r+1)]) @ rVT[:(r+1),:])
@@ -114,12 +115,12 @@ def slice_by_slice_RSVD(tensor, ranks, colorful, dim=0, reconstruct=True):
     else:
         return lefts, sigmas, rights
 
-def all_dim_RSVD(exp_name, video_tensor, desired_compression_ratio, format_='mp4v', fps=20, colorful=True, delete_prev=False, save=True):
+def all_dim_RSVD(exp_name, video_tensor, desired_compress_ratio, format_='mp4v', fps=20, colorful=True, delete_prev=False, save=True, seed=42):
     tensors = []
     sigmas = []
     relative_errors = []
-    ranks = calculate_RSVD_ranks(desired_compression_ratio, video_tensor.shape)
-    exact_comp_ratios = calculate_RSVD_compression_ratios(ranks, video_tensor.shape)
+    ranks = calculate_RSVD_ranks(desired_compress_ratio, video_tensor.shape)
+    exact_compress_ratios = calculate_RSVD_compress_ratios(ranks, video_tensor.shape)
     times = []
     output_dir = f"../videos/output/RSVD/{exp_name}"
     if not os.path.exists(output_dir):
@@ -134,7 +135,7 @@ def all_dim_RSVD(exp_name, video_tensor, desired_compression_ratio, format_='mp4
         print(f"RSVD slice by slice along {i}-th dimension with rank = {ranks[i]}:")
         
         start = time.time()
-        left, sigma, right, reconstruction, relative_error =  slice_by_slice_RSVD(video_tensor, ranks=ranks[i], dim=i, colorful=colorful)
+        left, sigma, right, reconstruction, relative_error =  slice_by_slice_RSVD(video_tensor, ranks=ranks[i], dim=i, colorful=colorful, seed=seed)
         times.append(time.time() - start)
         tensors.append(reconstruction)
         sigmas.append(sigma)
@@ -151,30 +152,35 @@ def all_dim_RSVD(exp_name, video_tensor, desired_compression_ratio, format_='mp4
     results_dict["sigmas"] = sigmas
     results_dict["relative_error"] = relative_errors
     results_dict["ranks"] = ranks
-    results_dict["exact_compression_ratio"] = exact_comp_ratios
+    results_dict["exact_compress_ratio"] = exact_compress_ratios
     results_dict["method_time"] = times
     return results_dict
 
 
-def calculate_RSVD_ranks(desired_comp_ratio, shape):
+def calculate_RSVD_ranks(desired_compress_ratio, shape):
     ranks = [0, 0, 0]
     shape = shape[:3]
     shape_sum = sum(shape)
-    desired_total_size = np.prod(shape) / desired_comp_ratio
+    desired_total_size = np.prod(shape) / desired_compress_ratio
     for i in range(3):
         ranks[i]  = int((desired_total_size / (shape[i] * (shape_sum - shape[i]))).__floor__())
     return ranks
     
-def calculate_RSVD_compression_ratios(ranks, shape):
-    comp_ratios = [0, 0, 0]
+def calculate_RSVD_compress_ratios(ranks, shape):
+    compress_ratios = [0, 0, 0]
     shape = shape[:3]
     for i in range(3):
-        comp_ratios[i] = np.prod(shape) / (ranks[i] * shape[i] * (sum(shape) - shape[i]))
-    return comp_ratios
+        compress_ratios[i] = np.prod(shape) / (ranks[i] * shape[i] * (sum(shape) - shape[i]))
+    return compress_ratios
 
-def calculate_2d_RSVD_compression_ratio(rank, shape):
+def calculate_2d_RSVD_compress_ratio(rank, shape):
     if len(shape) != 2:
         raise ValueError(f"Shape must be of length 2, but received shape={shape}")
-    return np.prod(shape) / (rank**2 + rank*sum(shape))
+    return np.prod(shape) / (rank*(sum(shape)+1))
+
+def calculate_2d_RSVD_rank(desired_compress_ratio, shape):
+    desired_total_size = np.prod(shape) / desired_compress_ratio
+    rank  = int((desired_total_size / (sum(shape) + 1)).__floor__())
+    return rank, calculate_2d_RSVD_compress_ratio(rank, shape)
     
     

@@ -1,4 +1,5 @@
 .*
 ./videos/*
+./images/*
 ./plots/*
 ./jsons/*

@@ -8,7 +8,7 @@ from video_handler import save_numpy_as_video
 from hosvd import hosvd
 
 
-def calculate_cp_compression_ratio(rank, shape, print_ = True):
+def calculate_cp_compress_ratio(rank, shape, print_ = True):
     """
     Calculates theoretical compression ratio of using CP format given shape of full tensor and rank(aka number of components)
     """
@@ -17,18 +17,18 @@ def calculate_cp_compression_ratio(rank, shape, print_ = True):
         print(f"Compression ratio is about{c_r: .3f}, so CP format requires approximately{100/c_r: .2f}% of dense tensor memory size")
     return c_r
 
-def calculate_suggestion_cp_rank(desired_comp_ratio, shape, print_ = True):
+def calculate_suggestion_cp_rank(desired_compress_ratio, shape, print_ = True):
     """
     Calculates CP rank for desired compression ratio
     """
-    rank = (np.prod(shape) / (np.sum(shape) * desired_comp_ratio)).__floor__()
-    exact_compression_ratio = calculate_cp_compression_ratio(rank, shape, print_ = False)
+    rank = (np.prod(shape) / (np.sum(shape) * desired_compress_ratio)).__floor__()
+    exact_compress_ratio = calculate_cp_compress_ratio(rank, shape, print_ = False)
     if print_:
-        print(f"Suggested rank for desired compression ratio {desired_comp_ratio} is {rank}, exact comression ratio is {exact_compression_ratio: .3f}")
-    return rank, exact_compression_ratio
+        print(f"Suggested rank for desired compression ratio {desired_compress_ratio} is {rank}, exact comression ratio is {exact_compress_ratio: .3f}")
+    return rank, exact_compress_ratio
 
 
-def calculate_tucker_compression_ratio(ranks, shape, print_ = True):
+def calculate_tucker_compress_ratio(ranks, shape, print_ = True):
     """
     Calculates theoretical compression ratio of using Tucker format given shape of full tensor and ranks(aka shape of the core)
     """
@@ -41,29 +41,29 @@ def calculate_tucker_compression_ratio(ranks, shape, print_ = True):
         print(f"Compression ratio is about{c_r: .3f}, so Tucker format requires approximately{100/c_r: .2f}% of dense tensor memory size")
     return c_r
 
-def calculate_suggestion_tucker_ranks(desired_comp_ratio, shape, print_ = True):
+def calculate_suggestion_tucker_ranks(desired_compress_ratio, shape, print_ = True):
     """
     Calculates ranks for desired compression ratio, finding appropriate constant C such that C * shape = ranks
     """
     if shape[-1] == 3:
-        c = desired_comp_ratio**(-1/len(shape[:-1]))
+        c = desired_compress_ratio**(-1/len(shape[:-1]))
         ranks = [(c*r).__floor__() for r in shape[:-1]] + [3]
     else:
-        c = desired_comp_ratio**(-1/len(shape))
+        c = desired_compress_ratio**(-1/len(shape))
         ranks = [(c*r).__floor__() for r in shape]
-    while calculate_tucker_compression_ratio(ranks, shape, print_ = False) < desired_comp_ratio:
+    while calculate_tucker_compress_ratio(ranks, shape, print_ = False) < desired_compress_ratio:
         ranks[np.argmax(ranks)] -= 1
-    exact_compression_ratio = calculate_tucker_compression_ratio(ranks, shape, print_ = False)
+    exact_compress_ratio = calculate_tucker_compress_ratio(ranks, shape, print_ = False)
     if print_:
-        print(f"Suggested ranks for desired compression ratio {desired_comp_ratio} is {ranks}, exact comression ratio is {exact_compression_ratio: .3f}")
-    return ranks, exact_compression_ratio
+        print(f"Suggested ranks for desired compression ratio {desired_compress_ratio} is {ranks}, exact comression ratio is {exact_compress_ratio: .3f}")
+    return ranks, exact_compress_ratio
 
 
 def decomposition(exp_name,
                  np_tensor,
                  method,
                  method_keyargs,
-                 desired_comp_ratio=None,
+                 desired_compress_ratio=None,
                  ranks = None,
                  mean_frame_substraction = False, 
                  fps=20, 
@@ -73,10 +73,10 @@ def decomposition(exp_name,
 
     total_start = time.time()
     
-    if desired_comp_ratio and ranks:
-        raise ValueError("Too many param values are specified, either 'desired_comp_ratio' or 'ranks' must be not None")
-    elif not (desired_comp_ratio or ranks):
-        raise ValueError("Too few param values are specified, either 'desired_comp_ratio' or 'ranks' must be not None")
+    if desired_compress_ratio and ranks:
+        raise ValueError("Too many param values are specified, either 'desired_compress_ratio' or 'ranks' must be not None")
+    elif not (desired_compress_ratio or ranks):
+        raise ValueError("Too few param values are specified, either 'desired_compress_ratio' or 'ranks' must be not None")
 
 
     output_dir = f"../videos/output/{method}/{exp_name}"
@@ -100,16 +100,16 @@ def decomposition(exp_name,
     
     tl_tensor = tl.tensor(np_tensor)
     
-    if desired_comp_ratio:
+    if desired_compress_ratio:
         if method == "CP":
-            ranks, exact_compression_ratio = calculate_suggestion_cp_rank(desired_comp_ratio, tl_tensor.shape)      
+            ranks, exact_compress_ratio = calculate_suggestion_cp_rank(desired_compress_ratio, tl_tensor.shape)      
         else:
-            ranks, exact_compression_ratio = calculate_suggestion_tucker_ranks(desired_comp_ratio, tl_tensor.shape)                                              
+            ranks, exact_compress_ratio = calculate_suggestion_tucker_ranks(desired_compress_ratio, tl_tensor.shape)                                              
     else:
         if method == "CP":
-            exact_compression_ratio = calculate_cp_compression_ratio(rank, tl_tensor.shape)                                    
+            exact_compress_ratio = calculate_cp_compress_ratio(rank, tl_tensor.shape)                                    
         else:
-            exact_compression_ratio = calculate_tucker_compression_ratio(ranks, tl_tensor.shape)    
+            exact_compress_ratio = calculate_tucker_compress_ratio(ranks, tl_tensor.shape)    
     
     start = time.time()
     tol = 1e-9 if method=="CP" else 1e-3
@@ -194,7 +194,7 @@ def decomposition(exp_name,
     results_dict["is_same_tensor"] = is_same_tensor
     results_dict["relative_error"] = relative_error
     results_dict["method_time"] = method_time
-    results_dict["exact_compression_ratio"] = exact_compression_ratio
+    results_dict["exact_compress_ratio"] = exact_compress_ratio
     if mean_frame_substraction:
         results_dict["mean_centering_extra_time"] = mean_addition_time + mean_substraction_time
     return results_dict
