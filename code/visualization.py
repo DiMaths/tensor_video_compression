@@ -1,6 +1,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import time
+from adjustText import adjust_text
+from matplotlib.lines import Line2D
 
 from rsvd import calculate_2d_RSVD_compress_ratio
 from util import compute_alpha, prepare_mean_reconstruction_measurements_for_plot
@@ -62,22 +64,37 @@ def error_time_analysis(exp_name: str, X:np.ndarray, all_results: dict, title:st
     axs[2].set_ylabel("alpha = ln(1/error) / ln(e+time)")
     
     all_means_dict = prepare_mean_reconstruction_measurements_for_plot(X)
+    
     for i, label in enumerate(all_means_dict['labels']):
         axs[0].scatter(all_means_dict['compress_ratios'][i], all_means_dict['relative_errors'][i], marker='D', color='pink', s=100)
         axs[1].scatter(all_means_dict['compress_ratios'][i], all_means_dict['times'][i], marker='D', color='pink', s=100)
         axs[2].scatter(all_means_dict['compress_ratios'][i], all_means_dict['alphas'][i], marker='D', color='pink', s=100)
-        
-        axs[0].annotate(label, (all_means_dict['compress_ratios'][i], all_means_dict['relative_errors'][i]), fontsize=12)
-        axs[1].annotate(label, (all_means_dict['compress_ratios'][i], all_means_dict['times'][i]), fontsize=12)
-        axs[2].annotate(label, (all_means_dict['compress_ratios'][i], all_means_dict['alphas'][i]), fontsize=12)
+    
     max_mean_error = np.max(all_means_dict['relative_errors'])    
     axs[0].set_ylim(-0.05 * max_mean_error, 1.05 * max_mean_error)
-    axs[0].legend(loc='upper center', ncols=4, bbox_to_anchor=(0.5, 1.3))
-    plt.suptitle(title if title else exp_name, y=0.975)
-    plt.tight_layout()
-    plt.show()
     
+    # add manual symbols to auto legend
+    handles, labels = axs[0].get_legend_handles_labels()
+    point = Line2D([0], [0], label='M-(axes) - mean along axes', marker='D', color='pink', markersize=10, linestyle='')
+    handles.extend([point])
+    axs[0].legend(handles=handles, loc='upper center', ncols=4, bbox_to_anchor=(0.5, 1.3))
+    
+    plt.suptitle(title if title else exp_name, y=0.99)
+    plt.tight_layout()
+    
+    fig.savefig(f"../plots/{exp_name}_no_labeling.png", dpi=300)
+    texts = [[], [], []]
+    for i, label in enumerate(all_means_dict['labels']):
+            texts[0].append(axs[0].text(all_means_dict['compress_ratios'][i], all_means_dict['relative_errors'][i], label, fontsize=12))
+            texts[1].append(axs[1].text(all_means_dict['compress_ratios'][i], all_means_dict['times'][i], label, fontsize=12))
+            texts[2].append(axs[2].text(all_means_dict['compress_ratios'][i], all_means_dict['alphas'][i], label, fontsize=12))
+    
+    for i, t in enumerate(texts):
+        adjust_text(t, expand=(1, 2), arrowprops=dict(arrowstyle="fancy", color='pink', lw=2), ax=axs[i]) 
+    
+    plt.show()
     fig.savefig(f"../plots/{exp_name}.png", dpi=300)
+    
     return 
 
 
@@ -161,22 +178,35 @@ def svd_rsvd_error_time_analysis(exp_name: str, X: np.ndarray, all_rsvd_dict: di
     axs[2].set_ylabel("alpha = ln(1/error) / ln(e+time)")
     
     all_means_dict = prepare_mean_reconstruction_measurements_for_plot(X)
+    
     for i, label in enumerate(all_means_dict['labels']):
         axs[0].scatter(all_means_dict['compress_ratios'][i], all_means_dict['relative_errors'][i], marker='D', color='pink', s=100)
         axs[1].scatter(all_means_dict['compress_ratios'][i], all_means_dict['times'][i], marker='D', color='pink', s=100)
         axs[2].scatter(all_means_dict['compress_ratios'][i], all_means_dict['alphas'][i], marker='D', color='pink', s=100)
-        
-        axs[0].annotate(label, (all_means_dict['compress_ratios'][i], all_means_dict['relative_errors'][i]), fontsize=12)
-        axs[1].annotate(label, (all_means_dict['compress_ratios'][i], all_means_dict['times'][i]), fontsize=12)
-        axs[2].annotate(label, (all_means_dict['compress_ratios'][i], all_means_dict['alphas'][i]), fontsize=12)
-        
+      
     max_mean_error = np.max(all_means_dict['relative_errors'])    
-    axs[0].set_ylim(-0.05 * max_mean_error, 1.05 * max_mean_error)    
-    axs[0].legend(loc='upper center', ncols=4, bbox_to_anchor=(0.5, 1.3))
-    plt.suptitle(title if title else exp_name, y=0.975)
-    plt.tight_layout()
-    plt.show()
+    axs[0].set_ylim(-0.05 * max_mean_error, 1.05 * max_mean_error)
     
+     # add manual symbols to auto legend
+    handles, labels = axs[0].get_legend_handles_labels()
+    point = Line2D([0], [0], label='M-(axes) - mean along axes', marker='D', color='pink', markersize=10, linestyle='')
+    handles.extend([point])
+    axs[0].legend(handles=handles, loc='upper center', ncols=4, bbox_to_anchor=(0.5, 1.3))
+    
+    plt.suptitle(title if title else exp_name, y=0.99)
+    plt.tight_layout()
+    
+    fig.savefig(f"../plots/{exp_name}_no_labeling.png", dpi=300)
+    texts = [[], [], []]
+    for i, label in enumerate(all_means_dict['labels']):
+            texts[0].append(axs[0].text(all_means_dict['compress_ratios'][i], all_means_dict['relative_errors'][i], label, fontsize=12))
+            texts[1].append(axs[1].text(all_means_dict['compress_ratios'][i], all_means_dict['times'][i], label, fontsize=12))
+            texts[2].append(axs[2].text(all_means_dict['compress_ratios'][i], all_means_dict['alphas'][i], label, fontsize=12))
+    
+    for i, t in enumerate(texts):
+        adjust_text(t, expand=(1, 2), arrowprops=dict(arrowstyle="fancy", color='pink', lw=2), ax=axs[i]) 
+
+    plt.show()
     fig.savefig(f"../plots/{exp_name}.png", dpi=300)
     return
 

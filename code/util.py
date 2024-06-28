@@ -82,6 +82,6 @@ def prepare_mean_reconstruction_measurements_for_plot(X: np.ndarray):
                    'times': times_mean_substraction,
                    'compress_ratios': compress_ratios_mean_substraction,
                    'alphas':  efficiency_mean_substraction,
-                   'labels': [f"Mean-{axes}" if axes else "Mean-Frame" for axes in all_combinations]
+                   'labels': [f"M-{axes}" if axes else "Mean-Frame" for axes in all_combinations]
                    }
     return result_dict
