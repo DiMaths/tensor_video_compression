@@ -48,9 +48,9 @@ def error_time_analysis(exp_name: str, X:np.ndarray, all_results: dict, title:st
             exact_compress_ratios = np.array([results_rsvd[compress_ratio]["exact_compress_ratio"] for compress_ratio in results_rsvd.keys()])
             colors = ["black", "yellow", "green"]
             for i in range(3):
-                axs[0].plot(exact_compress_ratios[:, i], relative_errors[:, i], marker='o', label=f"RSVD {i}-th dim", color=colors[i])
-                axs[1].plot(exact_compress_ratios[:, i], times[:, i], marker='o', label=f"RSVD {i}-th dim", color=colors[i])
-                axs[2].plot(exact_compress_ratios[:, i], efficiency[i], marker='o', label=f"RSVD {i}-th dim", color=colors[i])
+                axs[0].plot(exact_compress_ratios[:, i], relative_errors[:, i], marker='o', label=f"RSVD-{i}", color=colors[i])
+                axs[1].plot(exact_compress_ratios[:, i], times[:, i], marker='o', label=f"RSVD-{i}", color=colors[i])
+                axs[2].plot(exact_compress_ratios[:, i], efficiency[i], marker='o', label=f"RSVD-{i}", color=colors[i])
                 
     axs[-1].set_xlabel("Compression Ratio")
     axs[0].set_title("Relative error of the reconstruction")
@@ -98,7 +98,7 @@ def error_time_analysis(exp_name: str, X:np.ndarray, all_results: dict, title:st
     return 
 
 
-def plot_image_svd_reconstructions(U: np.ndarray,S: np.ndarray,Vt: np.ndarray, ranks: list, labels=None) -> None:
+def plot_image_svd_reconstructions(U: np.ndarray,S: np.ndarray,Vt: np.ndarray, ranks: list, labels=None, save_png=False) -> None:
     fig, ax = plt.subplots(1,len(ranks),figsize=(16,(16 / Vt.shape[1] * U.shape[0] / len(ranks)).__ceil__()))
     
     compress_ratios = [calculate_2d_RSVD_compress_ratio(r, (U.shape[0], Vt.shape[1])) for r in ranks]
@@ -113,7 +113,9 @@ def plot_image_svd_reconstructions(U: np.ndarray,S: np.ndarray,Vt: np.ndarray, r
             ax[j].set_title(f"r = {r}, c_r = {compress_ratios[j]:.3f}")
         else:
             ax[j].set_title(f"{labels[j]}, r = {r}, c_r = {compress_ratios[j]:.3f}")
-        ax[j].title.set_fontsize(36 / len(ranks))
+        ax[j].title.set_fontsize(36 / len(ranks))    
+    if save_png:
+        fig.savefig(f"../plots/last_reconstructions.png", dpi=300)
     plt.show()
 
 

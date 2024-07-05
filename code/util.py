@@ -82,6 +82,30 @@ def prepare_mean_reconstruction_measurements_for_plot(X: np.ndarray):
                    'times': times_mean_substraction,
                    'compress_ratios': compress_ratios_mean_substraction,
                    'alphas':  efficiency_mean_substraction,
-                   'labels': [f"M-{axes}" if axes else "Mean-Frame" for axes in all_combinations]
+                   'labels': [f"M-{axes}" for axes in all_combinations]
                    }
     return result_dict
+
+def create_random_matrix(rank, size):
+    """
+    Create a random matrix of given rank and size.
+    
+    Parameters:
+    rank (int): The rank of the matrix.
+    size (tuple): The size of the matrix as (rows, cols).
+    
+    Returns:
+    np.ndarray: A random matrix of the given rank and size.
+    """
+    rows, cols = size
+    if rank > min(rows, cols):
+        raise ValueError("Rank cannot be greater than the smallest dimension of the matrix")
+    
+    # Create two random matrices of appropriate sizes
+    A = np.random.randn(rows, rank)
+    B = np.random.randn(rank, cols)
+    
+    # Multiply them to get a matrix of the desired rank
+    matrix = np.dot(A, B)
+    
+    return matrix
